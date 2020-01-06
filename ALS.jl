@@ -6,81 +6,66 @@ using SparseArrays
 using ForwardDiff
 using Plots
 using LinearAlgebra
+using Distributions
 
 
 
 sparseN(N) = sparse(randperm(N), randperm(N), ones(N), N, N) .* rand(-5:5, N ,N)
 mm(N) = sparse(rand(1:N, N), rand(1:N, N), ones(N), N, N)
 
-R =Array(mm(100)) + Array(mm(100)) + Array(mm(100))
+R =Array(mm(1000))
 #R = Array(sparseN(100))
 
-R = (ones(100, 100) - R) .* rand(-5:5, 100 , 100)
-
-rank(R)
-
-k = 10
-n, m = size(R)
+R = abs.(R .* rand(-5:5, 1000 , 1000))
 
 
-X = rand(n, k)
-Y = rand(m, k)
-
-
-loss(R, X, Y, l) = sum((R - X*Y').^2) + l*(norm(X) + norm(Y))
-
-w = x -> loss(R, x, Y, 0.1)
-v = x -> loss(R, X, x, 0.1)
-
-grad(x) = ForwardDiff.gradient(w, X)
-
+loss(R, X, Y, l) = sum((R - X'*Y).^2) + l*(sum(X.^2) + sum(Y.^2))
 
 function ALS(R, epochs, lam, k)
     lossl = []
     n, m = size(R)
 
-    X = rand(n, k)
-    Y = rand(m ,k)
+    X = rand(k, n)
+    Y = rand(k , m)
     L = I(k)*lam
-
-    for i in 1:epochs
-        #w = x -> loss(R, x, Y)
-        #grad(x) = ForwardDiff.gradient(w, x)
-        #X = descent(X, grad, epochs, stepsize)
-        #v = y -> loss(R, X, y, 0.1)
-        #gradi(x) = ForwardDiff.gradient(v, x)
-        #Y = descent(Y, gradi, epochs, stepsize)
-
-
-        X = ((Y'*Y + L)\Y'*R)'
-        Y = ((X'*X + L)\X'*R)'
+    for _ in 1:epochs
+        Y .= ((X*X' + L)\X*R)
+        X .= ((Y*Y' + L)\Y*R')
 
         append!(lossl, loss(R, X, Y, lam))
     end
     return lossl, X, Y
 end
 
+function SALS(R, epochs, lam, k)
+    lossl = []
 
-
-function descent(x, grad, epochs, stepsize)
     for i in 1:epochs
-        x = x - stepsize*grad(x)
+        RR = R[sample(1:size(R,1), 10, replace = false),:]
+        n, m = size(RR)
+        X = rand(k, n)
+        Y = rand(k , m)
+        L = I(k)*lam
+        for i in 1:epochs
+            Y = ((X*X' + L)\X*RR)
+            X = ((Y*Y' + L)\Y*RR')
+
+            append!(lossl, loss(RR, X, Y, lam))
+        end
     end
-    return x
+    return lossl, X, Y
 end
 
+R = abs.(R)
 
-l, XX, YY = ALS(R, 100, 0.1, 200)
+@time l, XX, YY = ALS(R, 100, 0.001, 10)
+
+
 plot(l)
 
 
-loss(R, XX, YY, 0.0)
-
-l
 
 
-(XX*YY')
+(XX'*YY)
 
-mm(N) = sparse(rand(1:N, N), rand(1:N, N), ones(N), N, N)
-
-rank(Array(mm(10)))
+(R)
