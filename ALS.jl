@@ -21,6 +21,7 @@ R = abs.(R .* rand(-5:5, 1000 , 1000))
 
 loss(R, X, Y, l) = sum((R - X'*Y).^2) + l*(sum(X.^2) + sum(Y.^2))
 
+
 function ALS(R, epochs, lam, k)
     lossl = []
     n, m = size(R)
