@@ -83,10 +83,15 @@ end
 function hardthres(x, Y)
     mat = similar(x)
     for i in eachindex(x)
-        if x[i] > Y
-            mat[i] = x[i] - Y
-        elseif x[i] < Y
-            mat[i] = 
+        if abs(x[i]) < Y
+            mat[i] = 0
+        elseif abs(x[i]) > Y
+            mat[i] = x[i]
+        else
+            nothing
+        end
+    end
+end # Y = sqrt(2*var(X)*log(n)/n))
 
 function sgd(X, Y, n)
     u = sample(1:size(X,1), n, replace = false)
