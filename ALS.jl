@@ -12,53 +12,47 @@ using Distributions
 sparseN(N) = sparse(randperm(N), randperm(N), ones(N), N, N) .* rand(-5:5, N ,N)
 mm(N) = sparse(rand(1:N, N), rand(1:N, N), ones(N), N, N)
 R =Array(mm(1000))
-#R = Array(sparseN(100))
 R = abs.(R .* rand(-5:5, 1000 , 1000))
 
 
-# loss(R, X, Y, l) = sum((R - X'*Y).^2) + l*(sum(X.^2) + sum(Y.^2))
-# function ALS(R, epochs, lam, k)
-#     lossl = []
-#     n, m = size(R)
-#
-#     X = (rand(k, n))
-#     Y = (rand(k , m))
-#     L = I(k)*lam
-#     for _ in 1:epochs
-#         Y .= ((X*X' + L)\X*R)
-#         X .= ((Y*Y' + L)\Y*R')
-#
-#         append!(lossl, loss(R, X, Y, lam))
-#     end
-#     return lossl, X, Y
-# end
-#
-#
-# R = abs.(R)
-#
-# @time l, XX, YY = ALS(R, 100, 0.001, 11)
-# plot(l)
-
-
 l2_loss(R, X, Y, l) = sum((R - X*Y').^2) + l*(sum(X.^2) + sum(Y.^2))
+
+## closed form solution using all samples (full matrix)
 function ALS(R, epochs, lam, k)
-    lossl = []
+    loss = []
     n, m = size(R)
-    X = addbias(rand(n, k))
-    Y = addbias(rand(m , k))
-    L = I(k+1)*lam
+    X = (rand(n, k))
+    Y = (rand(m , k))
+    L = I(k)*lam
     for _ in 1:epochs
         Y .= ((X'*X + L)\X'*R)'
         X .= ((Y'*Y + L)\Y'*R')'
-
-        append!(lossl, l2_loss(R, X, Y, lam))
+        append!(loss, l2_loss(R, X, Y, lam))
     end
-    return lossl, X, Y
+    return loss, X, Y
 end
 
-@time l, XX, YY = ALS(R, 100, 0.0, 10)
-plot(l)
+@time l, XX, YY = ALS(R, 500, 0.0, 100)
+plot(l, label = "ALS")
 
+## stochastic alternating least squares
+function SALS(R, k, lam, stepsize, epochs, samplesize)
+    loss = []
+    n, m = size(R)
+    X = (rand(n, k))
+    Y = (rand(m , k))
+
+    for i in 1:epochs
+        u, i = sgd(X, Y, samplesize)
+        Y[i,:] .+= stepsize .* (X[u,:]'*(R[u, i] - X[u,:]*Y[i,:]'))' + lam .* Y[i,:]
+        X[u,:] .+= stepsize .* (Y[i,:]'*((R[u, i] - X[u,:]*Y[i,:]')'))' + lam .* X[u,:]
+        append!(loss, l2_loss(R, X, Y, lam))
+    end
+    return loss, X, Y
+end
+
+lo, xx, yy = SALS(R, 100, 0.01, 0.0001, 500, 50)
+plot(lo, label = "SALS")
 
 ### gradient descent LASSO ###
 
@@ -91,6 +85,7 @@ function hardthres(x, Y)
             nothing
         end
     end
+    return mat
 end # Y = sqrt(2*var(X)*log(n)/n))
 
 function sgd(X, Y, n)
@@ -100,12 +95,11 @@ function sgd(X, Y, n)
 end
 
 
-
 l1_loss(R, X, Y, l) = sum((R - X*Y').^2) + l*(norm(X,1) + norm(Y,1))
 
 ### stochastic Iterative soft thresholding algo for L1 loss
 function ISTA(R, k, lam, stepsize, epochs, samplesize)
-    lossl = []
+    loss = []
     n, m = size(R)
     X = (rand(n, k))
     Y = (rand(m , k))
@@ -114,14 +108,31 @@ function ISTA(R, k, lam, stepsize, epochs, samplesize)
         u, i = sgd(X, Y, samplesize)
         Y[i,:] .= softthres(Y[i,:] + stepsize .* (X[u,:]'*(R[u, i] - X[u,:]*Y[i,:]'))', lam)
         X[u,:] .= softthres(X[u,:] + stepsize .* (Y[i,:]'*((R[u, i] - X[u,:]*Y[i,:]')'))', lam)
-
-        #Y .= softthres(Y + stepsize .* (X'*(R - X*Y'))', lam)
-        #X .= softthres(X + stepsize .* (Y'*((R - X*Y')'))', lam)
-        append!(lossl, l1_loss(R, X, Y, lam))
+        append!(loss, l1_loss(R, X, Y, lam))
     end
-    return lossl, X, Y
+    return loss, X, Y
 end
 
-lo, xx, yy = ISTA(R, 100, 0.001, 0.001, 500, 100)
+lo, xx, yy = ISTA(R, 100, 0.01, 0.0001, 500, 50)
+plot!(lo, label = "ISTA")
 
-plot(lo)
+
+l0_loss(R, X, Y, l) = sum((R - X*Y').^2) + l*(norm(X,0) + norm(Y,0))
+### stochastic Iterative hard thresholding algo for L0 loss
+function IHTA(R, k, lam, stepsize, epochs, samplesize)
+    loss = []
+    n, m = size(R)
+    X = (rand(n, k))
+    Y = (rand(m , k))
+
+    for i in 1:epochs
+        u, i = sgd(X, Y, samplesize)
+        Y[i,:] .= hardthres(Y[i,:] + stepsize .* (X[u,:]'*(R[u, i] - X[u,:]*Y[i,:]'))', lam)
+        X[u,:] .= hardthres(X[u,:] + stepsize .* (Y[i,:]'*((R[u, i] - X[u,:]*Y[i,:]')'))', lam)
+        append!(loss, l0_loss(R, X, Y, lam))
+    end
+    return loss, X, Y
+end
+
+lo, xx, yy = IHTA(R, 100, 0.01, 0.0001, 500, 50)
+plot!(lo, label = "IHTA")
