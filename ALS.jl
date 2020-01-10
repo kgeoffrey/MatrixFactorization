@@ -1,8 +1,6 @@
 ### ALS method
-using StatsBase
 using Random
 using SparseArrays
-using ForwardDiff
 using Plots
 using LinearAlgebra
 using Distributions
@@ -11,8 +9,11 @@ using Distributions
 ## try generate a sparse matrix
 sparseN(N) = sparse(randperm(N), randperm(N), ones(N), N, N) .* rand(-5:5, N ,N)
 mm(N) = sparse(rand(1:N, N), rand(1:N, N), ones(N), N, N)
-R =Array(mm(1000))
-R = abs.(R .* rand(-5:5, 1000 , 1000))
+R = Array(mm(1000))
+R = abs.(R .* rand(1:5, 1000 , 1000))
+
+
+rank(R)
 
 
 l2_loss(R, X, Y, l) = sum((R - X*Y').^2) + l*(sum(X.^2) + sum(Y.^2))
@@ -136,3 +137,37 @@ end
 
 lo, xx, yy = IHTA(R, 100, 0.01, 0.0001, 500, 50)
 plot!(lo, label = "IHTA")
+
+
+using CSV
+
+df = convert(Matrix{Float64}, CSV.read("ml-latest-small/ratings.csv", delim = ","))
+
+function prepare(df)
+    users = df[:,1]
+    movies = df[:,2]
+    #movies = Array(1:length(unique(df[:,2])))
+    rating = df[:,3]
+    usersl = length(unique(df[:,1]))
+    moviesl = length(unique(df[:,2]))
+
+    mat = Array{Float64}(undef, usersl, Int(maximum(df[:,2])))
+    mat2 = []
+    for (i, v) in enumerate(users)
+        mat[Int(v), Int(movies[Int(i)])] = rating[Int(i)]
+    end
+    return mat
+end
+
+
+
+tt = prepare(df)
+tt
+
+matl = []
+
+for i in 1:size(tt,2)
+    if sum(tt[:,i]) > 0
+        hcat(tt[:,i], matl)
+    end
+end
