@@ -152,11 +152,33 @@ function prepare(df)
     moviesl = length(unique(df[:,2]))
 
     mat = Array{Float64}(undef, usersl, Int(maximum(df[:,2])))
-    mat2 = []
     for (i, v) in enumerate(users)
         mat[Int(v), Int(movies[Int(i)])] = rating[Int(i)]
     end
-    return mat
+
+    function geti(tt)
+        n = 0
+        for i in 1:size(tt,2)
+            if sum(tt[:,i]) > 0
+                n += 1
+            end
+        end
+        return n
+    end
+
+    function testi(tt)
+        t = 1
+        matl = zeros(size(tt,1), geti(tt))
+        for i in 1:size(tt,2)
+            if sum(tt[:,i]) > 0
+                matl[:,t] = tt[:,i]
+                t += 1
+            end
+        end
+        return matl
+    end
+
+    return testi(mat)
 end
 
 
@@ -164,10 +186,17 @@ end
 tt = prepare(df)
 tt
 
-matl = []
+rank(tt)
 
-for i in 1:size(tt,2)
-    if sum(tt[:,i]) > 0
-        hcat(tt[:,i], matl)
-    end
-end
+@time l, XX, YY = ALS(tt, 500, 0.0, 10)
+plot(l, label = "ALS")
+
+lo, xx, yy = SALS(tt, 100, 0.00001, 0.001, 200, 3)
+
+lo, xx, yy = ISTA(tt, 100, 0.01, 0.001, 200, 20)
+plot(lo, label = "SALS")
+
+
+sum((tt - xx*yy').^2)/length(tt)
+
+rank(tt')
