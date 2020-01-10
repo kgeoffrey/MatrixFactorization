@@ -1,6 +1,6 @@
 # Matrix Completion
 
-Factoring matrix via alternating least squares, via Tikhonov- or L1 regularization. The L1 regularization problem (similar to LASSO) is solved via alternating stochastic iterative soft-thresholding algorithm (SISTA 💁).
+Factoring matrix via alternating least squares, via Tikhonov,L1- and L2 regularization. The L1 regularization problem (similar to LASSO) is solved via 'alternating stochastic iterative soft-thresholding algorithm' (SISTA 💁) and the L0 problem with the hard thresholding algorithm, though this problem is not convex.
 
 Sources:
 https://www.stat.cmu.edu/~ryantibs/convexopt-S15/scribes/08-prox-grad-scribed.pdf
